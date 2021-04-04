@@ -17,7 +17,6 @@ server.get('/location',(req,res)=>{
   let locationData = require('./data/location.json');
   console.log(locationData);
   let locationCity = new Location (locationData);
-  // console.log(locationData);
   res.send(locationCity);
 })
 // {
