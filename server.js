@@ -17,7 +17,6 @@ server.get('/location',(req,res)=>{
   let locationData = require('./data/location.json');
   console.log(locationData);
   let locationCity = new Location (locationData);
-  // console.log(locationData);
   res.send(locationCity);
 })
 // {
@@ -32,14 +31,15 @@ this.formatted_query=locData[0].display_name;
 this.latitude=locData[0].lat;
 this.longitude=locData[0].lon;
 }
-let weatherArr=[];
 server.get('/weather',(req,res)=>{
-  
+  let weatherArr=[];
   let weatherData = require('./data/ weather.json');
   weatherData.data.forEach((element,i)=>{
  let desc=weatherData.data[i].weather.description;
  let timeC=weatherData.data[i].valid_date;
  let weatherCity=new Weather(desc,timeC);
+ weatherArr.push(weatherCity);
+
 });
 
   res.send(weatherArr);
@@ -59,7 +59,6 @@ server.get('/weather',(req,res)=>{
 function Weather(description,timeCity){
 this.forecast=description;
 this.time=timeCity;
-    weatherArr.push(this);
   
   // this.forecast=wethData.data[0].weather.description;
   // this.time=wethData.data[0].valid_date;
