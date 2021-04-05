@@ -1,86 +1,103 @@
 'use strict';
-const express = require('express');
-require('dotenv').config();
-const cors = require('cors');
-
+const express = require('express'); // npm i express
+require('dotenv').config(); // npm i dotenv
+// CORS: Cross Origin Resource Sharing -> for giving the permission for who(clients) can touch my server oe send requests to my server
+const cors = require('cors'); // npm i cors
 const server = express();
-const PORT = process.env.PORT || 6000;
-
+const superagent = require('superagent');
+const PORT = process.env.PORT || 5000;
 server.use(cors());
-
-server.get('/',(req,res)=>{
-  res.send('your server is working!')
-})
-
-server.get('/location',(req,res)=>{
-  
-  let locationData = require('./data/location.json');
-  console.log(locationData);
-  let locationCity = new Location (locationData);
-  res.send(locationCity);
-})
-// {
-//   "search_query": "seattle",
-//   "formatted_query": "Seattle, WA, USA",
-//   "latitude": "47.606210",
-//   "longitude": "-122.332071"
-// }
-function Location(locData) {
-this.search_query='Lynnwood';
-this.formatted_query=locData[0].display_name;
-this.latitude=locData[0].lat;
-this.longitude=locData[0].lon;
+server.get('/', homeRouteHandler);
+server.get('/location', locationHandler);
+server.get('/weather', weatherHandler);
+server.get('/parks', parkHandler);
+server.get('*', erroeHandler);
+// request url (browser): localhost:3030/
+function homeRouteHandler(request, response) {
+  response.status(200).send('you server is alive!!');
 }
-server.get('/weather',(req,res)=>{
-  let weatherArr=[];
-  let weatherData = require('./data/ weather.json');
-  weatherData.data.forEach((element,i)=>{
- let desc=weatherData.data[i].weather.description;
- let timeC=weatherData.data[i].valid_date;
- let weatherCity=new Weather(desc,timeC);
- weatherArr.push(weatherCity);
+// request url (browser): localhost:3030/location
+function locationHandler(req, res) {
+  // console.log(req.query);
+  let cityName = req.query.city;
+  // console.log(cityName);
+  let key = process.env.LOCATION_KEY;
 
-});
-
-  res.send(weatherArr);
-});
-// [
-//   {
-//     "forecast": "Partly cloudy until afternoon.",
-//     "time": "Mon Jan 01 2001"
-//   },
-//   {
-//     "forecast": "Mostly cloudy in the morning.",
-//     "time": "Tue Jan 02 2001"
-//   },
-//   ...
-// ]
-
-function Weather(description,timeCity){
-this.forecast=description;
-this.time=timeCity;
-  
-  // this.forecast=wethData.data[0].weather.description;
-  // this.time=wethData.data[0].valid_date;
-  // console.log(weatherArr);
-
+  let locURL = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
+  superagent.get(locURL)
+    .then(geoData => {
+      // console.log(geoData.body);
+      let lData = geoData.body;
+      let locationData = new Location(lData, cityName);
+      res.send(locationData);
+    })
+    .catch(error => {
+      // console.log('inside superagent');
+      // console.log('Error in getting data from LocationIQ server');
+      // console.error(error);
+      res.send(error);
+    });
+  console.log('after superagent');
 }
-server.get('*',(req,res)=>{
-  
-  let errorObject = {
-      status: 500,
-      responseText: "Sorry, wrong path!"
-  }
-  res.status(500).send(errorObject);
-})
+function weatherHandler(req, res) {
+  // console.log(req.query);
+  let data1 = [];
+  let cityName = req.query.city;
+  console.log(cityName);
+  let key = process.env.WEATHER_KEY;
+  // `https://api.weatherbit.io/v2.0/forecast/daily`
+  let weaURL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${cityName}&key=${key}`;
+  superagent.get(weaURL)
+    .then(day => {
+      // console.log(day.body.data.Weather);
+      day.body.data.map(val => {
+        data1.push(new Weather(val));
+      });
+      res.send(data1);
+    });
+}
+function parkHandler(req, res) {
+  let data2 = [];
+  console.log(req.query);
+  let parkeName = req.query.search_query;
+  let key = process.env.PARK_KEY;
 
-
-
-
-
-
-
-
-server.listen(PORT,()=>{
-  console.log(`Hello!, you Listening on PORT  ${PORT}`)
-})
+  let parURL =`https://developer.nps.gov/api/v1/parks?q=${parkeName}&api_key=${key}`;
+  superagent.get(parURL)
+    .then(parkData => {
+      parkData.body.data.forEach(val => {
+        console.log(parkData.body);
+        data2.push(new Park(val));
+      });
+      res.send(data2);
+    });
+}
+function Location(geoData, cityName) {
+  this.search_query = cityName;
+  this.formatted_query = geoData[0].display_name;
+  this.latitude = geoData[0].lat;
+  this.longitude = geoData[0].lon;
+}
+function Weather(weatherDay) {
+  // console.log(weatherDay);
+  this.description = weatherDay.weather.description;
+  this.valid_date = weatherDay.valid_date;
+}
+function Park(parkData) {
+  this.name = parkData.name;
+  this.address = parkData.address;
+  this.free = parkData.free;
+  this.description = parkData.description;
+  this.url = parkData.url;
+}
+//location:3030/ddddddd
+function erroeHandler(req, res) {
+  let errObj = {
+    status: 500,
+    responseText: "Sorry, something went wrong"
+  };
+  res.status(500).send(errObj);
+}
+server.listen(PORT, () => {
+  console.log(`Listening on PORT ${PORT}`);
+});
