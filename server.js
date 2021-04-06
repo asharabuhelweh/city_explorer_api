@@ -46,7 +46,7 @@ function weatherHandler(req, res) {
   console.log(cityName);
   let key = process.env.WEATHER_KEY;
   // `https://api.weatherbit.io/v2.0/forecast/daily`
-  let weaURL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${cityName}&key=${key}`;
+  let weaURL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${cityName}&key=${key}&days=8`;
   superagent.get(weaURL)
     .then(day => {
       // console.log(day.body.data.Weather);
