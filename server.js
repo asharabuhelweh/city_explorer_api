@@ -3,42 +3,64 @@ const express = require('express'); // npm i express
 require('dotenv').config(); // npm i dotenv
 // CORS: Cross Origin Resource Sharing -> for giving the permission for who(clients) can touch my server oe send requests to my server
 const cors = require('cors'); // npm i cors
+const pg = require('pg');
 const server = express();
 const superagent = require('superagent');
 const PORT = process.env.PORT || 5000;
+const client = new pg.Client({
+  connectionString: process.env.DATABASE_URL,
+  //  ssl:
+  //   {
+  //      rejectUnauthorized: false }
+});
 server.use(cors());
 server.get('/', homeRouteHandler);
 server.get('/location', locationHandler);
 server.get('/weather', weatherHandler);
 server.get('/parks', parkHandler);
-server.get('*', erroeHandler);
+server.get('*', errorHandler);
+
 // request url (browser): localhost:3000/
 function homeRouteHandler(request, response) {
   response.status(200).send('you server is alive!!');
 }
+
 // request url (browser): localhost:3000/location
 function locationHandler(req, res) {
-  // console.log(req.query);
+  console.log(req.query);
   let cityName = req.query.city;
-  // console.log(cityName);
+  console.log(cityName);
   let key = process.env.LOCATION_KEY;
+  let LocURL = `https://us1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
+  let SQL = `SELECT * FROM locations WHERE search_query = '${cityName}';`;
+  client.query(SQL)
+    .then(result => {
+      if (result.rows.length === 0) {
+        superagent.get(LocURL)
+          .then(geoData => {
+            let gData = geoData.body;
+            const locationData = new Location(cityName, gData);
+            res.send(locationData);
 
-  let locURL = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
-  superagent.get(locURL)
-    .then(geoData => {
-      // console.log(geoData.body);
-      let lData = geoData.body;
-      let locationData = new Location(lData, cityName);
-      res.send(locationData);
+            let addLocationData = `INSERT INTO locations (search_query,formatted_query ,latitude,longitude) VALUES ($1,$2,$3,$4) RETURNING *;`;
+            let safeValues = [cityName, locationData.formatted_query, locationData.latitude, locationData.longitude];
+            client.query(addLocationData, safeValues)
+              .then(() => {
+              });
+
+          }).catch(() => {
+            res.status(404).send('Page Not Found.');
+          });
+      }
+      else {
+        res.send(result.rows[0]);
+      }
     })
     .catch(error => {
-      // console.log('inside superagent');
-      // console.log('Error in getting data from LocationIQ server');
-      // console.error(error);
       res.send(error);
     });
-  console.log('after superagent');
 }
+
 function weatherHandler(req, res) {
   // console.log(req.query);
   let data1 = [];
@@ -62,7 +84,7 @@ function parkHandler(req, res) {
   let parkeName = req.query.search_query;
   let key = process.env.PARK_KEY;
 
-  let parURL =`https://developer.nps.gov/api/v1/parks?q=${parkeName}&api_key=${key}`;
+  let parURL = `https://developer.nps.gov/api/v1/parks?q=${parkeName}&api_key=${key}`;
   superagent.get(parURL)
     .then(parkData => {
       parkData.body.data.forEach(val => {
@@ -72,7 +94,7 @@ function parkHandler(req, res) {
       res.send(data2);
     });
 }
-function Location(geoData, cityName) {
+function Location (cityName,geoData) {
   this.search_query = cityName;
   this.formatted_query = geoData[0].display_name;
   this.latitude = geoData[0].lat;
@@ -91,13 +113,16 @@ function Park(parkData) {
   this.url = parkData.url;
 }
 //location:3030/ddddddd
-function erroeHandler(req, res) {
+function errorHandler(req, res) {
   let errObj = {
     status: 500,
     responseText: "Sorry, something went wrong"
   };
   res.status(500).send(errObj);
 }
-server.listen(PORT, () => {
-  console.log(`Listening on PORT ${PORT}`);
-});
+client.connect()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Listening on PORT ${PORT}`);
+    });
+  });
