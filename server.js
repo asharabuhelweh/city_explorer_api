@@ -12,11 +12,11 @@ server.get('/location', locationHandler);
 server.get('/weather', weatherHandler);
 server.get('/parks', parkHandler);
 server.get('*', erroeHandler);
-// request url (browser): localhost:3030/
+// request url (browser): localhost:3000/
 function homeRouteHandler(request, response) {
   response.status(200).send('you server is alive!!');
 }
-// request url (browser): localhost:3030/location
+// request url (browser): localhost:3000/location
 function locationHandler(req, res) {
   // console.log(req.query);
   let cityName = req.query.city;
@@ -42,7 +42,7 @@ function locationHandler(req, res) {
 function weatherHandler(req, res) {
   // console.log(req.query);
   let data1 = [];
-  let cityName = req.query.city;
+  let cityName = req.query.search_query;
   console.log(cityName);
   let key = process.env.WEATHER_KEY;
   // `https://api.weatherbit.io/v2.0/forecast/daily`
@@ -79,7 +79,7 @@ function Location(geoData, cityName) {
   this.longitude = geoData[0].lon;
 }
 function Weather(weatherDay) {
-  // console.log(weatherDay);
+  console.log(weatherDay);
   this.description = weatherDay.weather.description;
   this.valid_date = weatherDay.valid_date;
 }
